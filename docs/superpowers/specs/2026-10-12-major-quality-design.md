@@ -1,0 +1,34 @@
+# Major Quality / Character Intelligence — design autorizado
+Data local:2026-10-12. Pedido completo: attachment0201ca79-4d30-4260-8995-6a4131d9df3a/Texto colado.txt; 20seções + complemento Character Intelligence. Implementação autônoma explicitamente solicitada; não recriar projeto, não interromper por aprovação de cada estágio. Geometria é P0, textura secundária; nenhuma equivalência Meshy ou porcentagem inventada.
+
+## Auditoria antes de modificar
+122arquivos fonte/teste/docs lidos,28módulos backend,Blender1,frontend7,unity2,scripts25,tests28,docs31. SemGit/AGENTS no workspace. FastAPI/Pydantic2+SQLiteStore+Worker serial, modelos em subprocessos/envs próprios, React19/Vite6/Three/R3F/drei, Blender4.5.3 e Unity6000.3URP17.3. TripoSR,TripoSG,Hunyuan-mini reais; perfil avançado anterior2candidatos/214–261s,71testes/build/Unity comprovação preservada. Dados/biblioteca ativos neste workspace; SG reaproveita junctions de C:/Projetos/forge3d-ai. Preservar tudo.
+HWconfirmado12/10:RTX4060/8188MiB driver595.97,Windows11build26200,i5-12400F,RAM31,82GiB,CUDA12.4/Torch2.5.1+cu124; GPUusada1980MiB inicial,132,76GiB livreC.
+Gaps: não há análise semântica/pose, múltiplas referências, simetria seletiva, template híbrido, normal baking/target triangles/OBJ, GPUpreflight/erros tipados/config deBlender/etapas com tempo. Quality Mode anterior éHY2 fixo. SPAR permanece apenas placeholdergated.
+
+## Opções consideradas
+A)Mais densidade/passos não resolve anatomia aprendida; descartado como estratégia central.
+B)Extensão conservadora: medidas/pose/correções editáveis, candidatos, análise clay, refinamentos e baking; selecionada e integrada à arquitetura atual.
+C)Multiview neural nativo pode melhorar informações ocultas; testarHY2mv como provedor opcional público4.928.151.562bytes/SHA d36f5881bcdc56726b73e517cd444c13c60732431622da7268145355c8d38e9c/rev3a761b539b29fe4ff64714813aa9560fd66f5de0. Só habilitar após inferência/export reais; offload só se necessário/medido. SPARgated não contornar, arquitetura/setup/status completos e execução bloqueada até acesso/toolchain.
+
+## Contratos
+CharacterUnderstanding: MediaPipe PoseLandmarkerLite CPU local em novo.venv-character,5.777.746bytes;33landmarks reais (visibility/presence não equivalem a probabilidade anatômica). Sem detecção de estilo/cabelo/roupas inventada; regiões derivadas são heurísticas e incertas. UI: categoria manual/pose/view, pontos editáveis/removíveis, caixas/proteções opcionais, registro antes de geração. Semantics nunca passadas como condicionamento a API que não aceita. Análise serve avaliação/ajuste/estratégia. Falha em anime mostra ausência/baixa confiança e permite edição manual.
+QualityMode: opt-in preservando advanced2 antigo;1,3,5candidatos sequenciais SG/HY(TripoSR1 apenas). Seeds reais, latentes/original/highpoly e relatórios de cada candidato. Publicação atômica N, cancelamento em qualquer estágio. Escolha humana; nada de auto-score.1candidato também válido.
+ReferenceBundle: front obrigatória,back/left/right/extras opcionais, imagemoriginal+hash+modo de vista. Single-image usa front para gerar e outras somente para comparação/projeção de superfície realmente visível; rótulo explícito. MV aceita dicionário nativo de vistas somente no modelo oficialMV. Não concatenar.
+GeometryIntegrity: preservar inspect_mesh; acrescentar winding/duplicatefaces/components/boundaryloops, amostragem limitada de espessura e interseções quando biblioteca real suporta. Cada teste tem status/método/limites. Abertura intencional/parte protegida não é defeito automaticamente.
+CharacterQualityAnalyzer: proporções2D e pose onde landmarks confiáveis, métricas de silhueta por referência, relações e incerteza; não chamar sobreposição anatomia. Comparações em5vistasclay antes de aprovar textura.
+SymmetryCorrection: defaultOff;Soft/Strong/Custom, plano local estimado ou manual confirmado e regiões selecionadas. Correspondências mutuas por proximidade e normais; distância/deslocamento limitados; excluir cabelo/roupa/acessórios por padrão quando máscaras confiáveis existem. Sem correspondência/pose incerta→recusar automático. Novaversão, medirantes/depois, conservarUV/topologia, reverterseintegridade/fidelidade piora.
+SculptRefinement: Macro contorno existente; Micro opt-in localizado/proteção de arestas/bordas/limites/rollback. Meso de rosto/dedos aprendido indisponível; não mascarar com suavização global.
+BaseMesh: alternativa experimental explícita de corpo humanoide paramétrico com landmarks/proporções manuais; recurso criado pelo projeto, sem pesos externos. Parte assistida, sem roupa/cabelo/identidade/rig automáticos. Primeira versão verificável + comparação generativa; nunca apresentar template como IA.
+GameReady: novoresultado a partir de highpoly, alvo5k/10k/20k/40k/custom, redução medida sem promessa de retopologia; UVpreservadas outransferenciabake verificada. Selected-to-active tangent normal bake Blender high→low,BaseColor preservada/projetada,1K/2K/4K sóresoluçãoreal/bake; nãofabricar roughness/metallicmaps. GLB+FBX+OBJ quando testado,normalmap associadoUnityURP/Standard; licenças/manifest/report.
+GPUManager/config: preflightVRAMsemCUDAnaAPI,processosseparados/unload/lockglobal,recovery/OOMtyped; configuração persistenteBlenderexecutablevalidada,estágios/timestamps/durações reais (sempercenttimer). FPS/UIbasicsem reescreverApp inteiro.
+
+## Verificação
+Antes/baseline hashesnapshot; RED→GREEN contratos e algoritmos; testesBlender de preservesUV/normalmap/objetivo; APIs uploads/views/manual correction/cancelpath boundaries/stale metadata. Inferências reais:Hinata3candidatos,fixture5candidatos em perfil econômico ainda real,objectTSregressão,MediaPipe noHinata/clay,HYMV2+vistas comsemoffload quando cabível. Fixtures próprias e explicitamenteprocedurais7casos:Apose,animehair,bulkyclothes,symmetric,asymmetricaccessory,dynamic,multi-view; gerar testesestruturais antes/depois e inferências representativas nohardware. Sem usartemplate como modelo IA genérico.
+Unity:ZIP realmente gerado, normalmap+UVs+textura+target+height/prefab; batchmode não gameplay/rig. QA desktop/mobile comPlaywright (browserplugin ausente). Revisão independente única nofinal,fixesRED→GREEN. Relatório lista cada requisitocomplete/partial/blocked; não esconder bloqueios/referências ausentes.
+
+## Rulings
+- Autonomia explícita substitui gates de aprovação por etapa das skills; executarinline/umreviewfinal, sem pedir aprovação redundante.
+- Downloads iniciais públicos permitidos neste pedido; Tencent licença já aceita para teste pessoal e vale mesma família; registrar5GBMV e6MBpose antes de baixar. SemAPIpaga/gated/driver/toolkitnovoautomaticamente.
+- SemGit: snapshot imutável/ledger/provas, nenhum commit/worktree/mergeinventado.
+- Novos módulos assistidos/experimentais podem melhorar diagnóstico e controle, mas não provam entendimento completo de anatomia/rigging ou equivalenteMeshy.

@@ -1,0 +1,9 @@
+export type Metadata={timing?:{elapsed_seconds:number;stages:{name:string;duration_seconds:number|null}[]};character_candidates?:{id:string;seed:number;preview:string;triangles:number}[];candidate_index?:number;advanced?:{generation_wall_seconds:number;peak_vram_mb:number};triangles?:number;vertices?:number;dimensions?:number[];materials?:{name:string;images:string[]}[];warnings?:string[];peak_vram_mb?:number;inference_seconds?:number;total_seconds?:number;before_triangles?:number;offline_network_blocked?:boolean;effective_settings?:{mc_resolution:number;texture_resolution:number|null;texture_method:string};texture?:{method:string;neural_texel_queries?:number};versions?:Record<string,string|null>;integrity?:{connected_components:number;degenerate_triangles:number;boundary_edges:number;nonmanifold_edges:number;uv_finite?:boolean;normals_finite?:boolean}[];live_gpu?:{used_mb:number;total_mb:number};seed_supported?:boolean;seed?:number;refinement?:{silhouette_iou_before:number;silhouette_iou_after:number;accepted:boolean};image_preparation?:{encoder_tensor_shape?:number[]}};
+export type Job = {id:string;name:string;provider:string;kind:'generate'|'transform'|'export';parent:string|null;status:string;stage:string;created_at:string;error:string|null;artifacts:Record<string,string>;metadata:Metadata};
+export type Health = {gpu:{name:string;total_mb:number;used_mb:number};providers:{id:string;name:string;available:boolean;notes?:string;presets?:string[]}[];blender:string;data_directory:string};
+export async function request<T>(url:string,init?:RequestInit):Promise<T> {
+  const response=await fetch(url,init);
+  if (!response.ok) { const data=await response.json().catch(()=>({detail:response.statusText})); throw new Error(typeof data.detail==='string'?data.detail:JSON.stringify(data.detail)); }
+  return response.json();
+}
+export const finished=(job:Job)=>['completed','failed','cancelled'].includes(job.status);

@@ -1,0 +1,22 @@
+# Torch 2.5.1+cu124 and torchvision 0.20.1+cu124 are copied from the verified
+# local environment into a separate venv; no shared mutable package directories.
+numpy==1.26.4
+scipy==1.15.2
+diffusers==0.32.2
+transformers==4.46.3
+accelerate==1.2.1
+peft==0.13.2
+huggingface-hub==0.30.2
+safetensors==0.5.3
+einops==0.7.0
+trimesh==4.6.8
+Pillow==11.2.1
+scikit-image==0.24.0
+omegaconf==2.3.0
+jaxtyping==0.2.38
+typeguard==2.13.3
+rembg==2.0.59
+onnxruntime==1.20.1
+psutil==7.0.0
+tqdm==4.67.1
+pytest==8.3.5

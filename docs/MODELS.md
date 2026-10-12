@@ -1,0 +1,19 @@
+# Avaliação dos modelos — 2026-10-09
+
+Fontes oficiais consultadas antes de integrar:
+
+Upgrade: TripoSR permanece default texturizado; TripoSG é uma opção de geometria validada na RTX4060. Pipeline v2 usa textura por texel, normais/cores corretas e presets 128/256/320; nove testes reais em QUALITY_AUDIT.md. TripoSG oficial MIT7.40 GiB: download autorizado/concluído, hashes dos safetensors verificados, três inferências CUDA/FBX aprovados; perfil FP16/50passos/256³/seed42. Sem textura nativa; detalhes em TRIPOSG_VALIDATION.md. SPAR3D foi investigado primeiro neste upgrade, mas seus pesos retornaram 401, assim como SF3D. Hunyuan2mini: download público/teste pessoal autorizado pelo usuário em11/10, FP16 e perfis256/384/avançado384×2 validados na RTX4060. Pico4,54GiB, sem offload, corpo mais coerente neste Hinata; textura frontal é projeção, não pintura neural. Hunyuan2mv permanece não instalado. Veja CHARACTER_ADVANCED_VALIDATION.md. Offload e multi-view não habilitados sem prova. As tabelas abaixo preservam o histórico da avaliação inicial.
+
+| Modelo | Memória informada | Windows/dependências | Licença e decisão |
+|---|---|---|---|
+| [Stable Fast 3D](https://github.com/Stability-AI/stable-fast-3d) | ~6 GB | Experimental, VS2022 e CUDA extensions | [Community License](https://github.com/Stability-AI/stable-fast-3d/blob/main/LICENSE.md). Uso pessoal previsto, restrições e regras comerciais próprias. Pesos gated: HEAD config.yaml 401. Não aceitamos termos pelo usuário. Prioridade avaliada; bloqueado por acesso. |
+| [TripoSR](https://github.com/VAST-AI-Research/TripoSR) | ~6 GB no default upstream | Extensão torchmcubes customizada. API adaptada para marching cubes CPU; CUDA neural original | Código MIT, [pesos MIT](https://huggingface.co/stabilityai/TripoSR). Download sem login ~1.68 GB. Integrado e inferência real testada RTX4060. Cores de vértices convertidas para UV/albedo no Blender. |
+| [SPAR3D](https://github.com/Stability-AI/stable-point-aware-3d) | Default 10.5 GB, reduzido ~7 GB; README também contém estimativa antiga 6 GB | Windows experimental VS2022, extensões | Community License, pesos gated. Sem folga confortável em 8 GB com desktop/viewport; não instalado. |
+| [Hunyuan3D-2](https://github.com/Tencent-Hunyuan/Hunyuan3D-2) | Shape ~6 GB, textura ~16 GB, completo ~29 GB, variam por versão/modo | Windows mencionado upstream, rasterizadores próprios e diversas dependências | [Tencent Community License](https://github.com/Tencent-Hunyuan/Hunyuan3D-2/blob/main/LICENSE). Regras territoriais/uso próprias; não aceitar pelo usuário. Versões mini/low-VRAM existem, mas completo texturizado não foi priorizado para 8 GB. Não instalado. |
+
+A tabela preserva a avaliação inicial; a validação posterior do Hunyuan-mini consta acima e no relatório de11/10. Não houve inferência dos candidatos não selecionados. Suporte listado pelo upstream não equivale a validação no hardware do usuário. Números do modelo integrado são medidos em inference.json, não assumidos da documentação.
+
+## Adaptações do TripoSR
+Upstream não foi editado. O adapter instancia TSR/OmegaConf, resolve interpolação antes de criar submódulos, carrega checkpoint original com weights_only, fornece config.json DINO local e implementação marching_cubes CPU equivalente na interface esperada (convenção de eixos invertida pelo helper upstream). Rede, decoder e cores são outputs reais do modelo. Chunk size 4096 reduz picos de ativações sem alterar pesos. Processo independente libera o contexto CUDA ao terminar.
+
+Blender 4.5.3 portátil obtido do [servidor oficial](https://download.blender.org/release/Blender4.5/), ZIP comparado com SHA256 publicado. Remoção de fundo usa u2netp baixado do release oficial rembg, em ONNX CPU. Esse recurso também exige validação real, registrada separadamente em QA.

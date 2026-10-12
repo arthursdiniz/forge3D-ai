@@ -1,0 +1,2 @@
+xatlas==0.0.11
+moderngl==5.13.0
