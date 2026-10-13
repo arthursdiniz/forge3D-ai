@@ -8,6 +8,7 @@ class GenerationOptions(BaseModel):
     foreground_ratio: float | None = Field(default=None, ge=0.5, le=0.95)
     crop: tuple[float,float,float,float] | None = None
     texture_resolution: Literal[512,1024,2048,4096] | None = None
+    texture_output: Literal['legacy','geometry_only']='legacy'
     background_mode: Literal['auto','keep','remove','preserve_alpha'] | None = None
     preparation_preset: Literal['character','stylized_character','prop','hard_surface','organic'] = 'prop'
     seed: int | None = Field(default=None,ge=0,le=4294967295,strict=True)

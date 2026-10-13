@@ -36,6 +36,8 @@ def main():
     settings=generation_settings(options.get('quality','balanced'))
     if args.ablation_resolution:settings['mc_resolution']=args.ablation_resolution
     settings['texture_resolution']=options.get('texture_resolution') or settings['texture_resolution']
+    geometry_only=options.get('texture_output')=='geometry_only'
+    if geometry_only:settings.update(texture_method='none',texture_resolution=None)
     stage('Preparando referência, preservando alpha')
     prepared=output/'prepared.png'
     image_report=prepare_image(Path(args.image),prepared,options.get('foreground_ratio'),options.get('crop'),options.get('remove_background',False),ROOT/'models/rembg',options.get('background_mode'),options.get('preparation_preset','prop'),save_alpha=True,save_masked_source=True)
@@ -54,17 +56,19 @@ def main():
         codes=model([Image.open(prepared).convert('RGB')],device='cuda')
         save_file({'scene_codes':codes.cpu().contiguous()},str(output/'scene_codes.safetensors'))
         stage('Extraindo superfície sem decimation')
-        mesh=model.extract_mesh(codes,has_vertex_color=True,resolution=settings['mc_resolution'])[0]
+        mesh=model.extract_mesh(codes,has_vertex_color=not geometry_only,resolution=settings['mc_resolution'])[0]
     if not len(mesh.faces) or not np.isfinite(mesh.vertices).all():raise RuntimeError('Geometria inválida.')
     # Explicit normals prevent Blender treating the raw surface as flat facets.
     mesh.vertex_normals
-    colors=mesh.visual.vertex_colors.copy()
-    colors[:,:3]=np.clip(np.rint(srgb_to_linear(colors[:,:3]/255.0)*255),0,255).astype(np.uint8)
-    mesh.visual.vertex_colors=colors
+    if not geometry_only:
+        colors=mesh.visual.vertex_colors.copy()
+        colors[:,:3]=np.clip(np.rint(srgb_to_linear(colors[:,:3]/255.0)*255),0,255).astype(np.uint8)
+        mesh.visual.vertex_colors=colors
     mesh.export(output/'original.glb',include_normals=True)
     mesh.export(output/'raw_generation.glb',include_normals=True)
     geometry_seconds=time.perf_counter()-neural_start
     texture={ 'method':'vertex_bake','vertex_color_interpolation':True,'pbr_channels':['base_color'] }
+    if geometry_only:texture={'method':'none','vertex_color_interpolation':False,'pbr_channels':[]}
     if settings['texture_method']=='neural_atlas':
         stage('UV xatlas e amostragem neural por texel')
         def query_colors(positions):
@@ -72,10 +76,10 @@ def main():
                 xyz=torch.as_tensor(positions,dtype=torch.float32,device='cuda')
                 return model.renderer.query_triplane(model.decoder,xyz,codes[0])['color'].cpu().numpy()
         texture=bake_neural_texture(mesh,query_colors,settings['texture_resolution'],output/'textures')
-    texture['raw_vertex_color_space']='sRGB neural RGB converted to linear glTF COLOR_0, 8-bit quantized'
+    texture['raw_vertex_color_space']='absent; no color query' if geometry_only else 'sRGB neural RGB converted to linear glTF COLOR_0, 8-bit quantized'
     torch.cuda.synchronize()
     manifest=json.loads((ROOT/'models/manifest.json').read_text())
-    metadata={'provider':'triposr','pipeline_version':2,'code_revision':'107cefdc244c39106fa830359024f6a2f1c78871','weight_revision':manifest['weight_revision'],'weight_sha256':manifest['files'][1]['sha256'],'device':torch.cuda.get_device_name(0),'torch':torch.__version__,'cuda':torch.version.cuda,'peak_vram_mb':round(torch.cuda.max_memory_allocated()/1024**2,1),'peak_reserved_mb':round(torch.cuda.max_memory_reserved()/1024**2,1),'load_seconds':round(load_seconds,2),'inference_seconds':round(geometry_seconds,2),'total_seconds':round(time.perf_counter()-started,2),'triangles':len(mesh.faces),'vertices':len(mesh.vertices),'dimensions':mesh.extents.tolist(),'vertex_colors':True,'offline_network_blocked':True,'marching_cubes':'scikit-image CPU; neural CUDA','texture':texture,'image_preparation':image_report,'parameters':options,'effective_settings':settings,'coordinate_system':'z_up','warnings':image_report['warnings'],'raw_generation':True,'auto_decimated':False,'seed':None,'seed_supported':False,'original_sha256':hashlib.sha256((output/'original.glb').read_bytes()).hexdigest()}
+    metadata={'provider':'triposr','pipeline_version':2,'code_revision':'107cefdc244c39106fa830359024f6a2f1c78871','weight_revision':manifest['weight_revision'],'weight_sha256':manifest['files'][1]['sha256'],'device':torch.cuda.get_device_name(0),'torch':torch.__version__,'cuda':torch.version.cuda,'peak_vram_mb':round(torch.cuda.max_memory_allocated()/1024**2,1),'peak_reserved_mb':round(torch.cuda.max_memory_reserved()/1024**2,1),'load_seconds':round(load_seconds,2),'inference_seconds':round(geometry_seconds,2),'total_seconds':round(time.perf_counter()-started,2),'triangles':len(mesh.faces),'vertices':len(mesh.vertices),'dimensions':mesh.extents.tolist(),'vertex_colors':not geometry_only,'offline_network_blocked':True,'marching_cubes':'scikit-image CPU; neural CUDA','texture':texture,'image_preparation':image_report,'parameters':options,'effective_settings':settings,'coordinate_system':'z_up','warnings':image_report['warnings'],'raw_generation':True,'auto_decimated':False,'seed':None,'seed_supported':False,'original_sha256':hashlib.sha256((output/'original.glb').read_bytes()).hexdigest()}
     (output/'inference.json').write_text(json.dumps(metadata,indent=2),encoding='utf-8')
     del mesh,codes,model
     runtime.unload()

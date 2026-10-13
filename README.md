@@ -49,3 +49,6 @@ Consulte docs/PROGRESS.md, docs/QA.md e docs/MODELS.md para resultados e pendên
 Character Intelligence local permite revisar pose/landmarks, medir diferenças e aplicar correções seletivas. QualityMode preserva1/3/5candidatos reais; Avançado2 antigo continua disponível. Hunyuan3D2mv está validado em Balanced com2–4vistas reais. GameReady inclui orçamento explícito, baking CPU de normal high→low e exportações GLB/FBX/OBJ/Unity.
 
 [Uso, medições, limitações e provas](docs/MAJOR_QUALITY_20261012.md). Setup CPU adicional: `powershell -ExecutionPolicy Bypass -File scripts/setup-major-quality.ps1`; multiview público opcional com `-DownloadMultiview`, sob a licença Tencent. SPAR3D continua bloqueado por acesso/runtime não validados; nada gated é baixado automaticamente.
+### Texturização independente
+
+Abra **Texturização IA** para escolher uma malha antiga ou importar GLB/GLTF/OBJ/FBX estático. Projeção de vistas reais e MV-Adapter SDXL criam novas versões com geometria verificada; o neural foi executado offline na RTX 4060 de 8 GB com seis vistas conjuntas. Modelagem/exportação continuam sem exigir esses pesos. Consulte [uso, medições, licenças e limites](docs/TEXTURE_ENGINE.md). Setup separado: `Setup-TextureEngine.bat` (download apenas quando explicitamente autorizado).

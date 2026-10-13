@@ -197,7 +197,7 @@ def save_glb(path):
     bpy.ops.export_scene.gltf(filepath=str(temporary),export_format='GLB',use_selection=True,export_yup=True)
     temporary.replace(path)
 
-def render_views(directory,unlit=False,clay=False,front_axis='x',resolution=384,opposite_side=False):
+def render_views(directory,unlit=False,clay=False,front_axis='x',resolution=384,opposite_side=False,normalize_light=False):
     scene=bpy.context.scene
     scene.render.engine='CYCLES'
     scene.cycles.samples=8
@@ -218,16 +218,25 @@ def render_views(directory,unlit=False,clay=False,front_axis='x',resolution=384,
         bsdf.inputs['Roughness'].default_value=0.65
         for obj in meshes():
             obj.data.materials.clear();obj.data.materials.append(material)
+            for polygon in obj.data.polygons:polygon.material_index=0
     if unlit:
         for material in bpy.data.materials:
             if not material.use_nodes:continue
             tree=material.node_tree
-            texture=next((node for node in tree.nodes if node.type=='TEX_IMAGE' and node.image),None)
+            bsdf=next((node for node in tree.nodes if node.type=='BSDF_PRINCIPLED'),None)
             output=next((node for node in tree.nodes if node.type=='OUTPUT_MATERIAL'),None)
-            if texture and output:
+            if bsdf and output:
                 emission=tree.nodes.new('ShaderNodeEmission')
-                tree.links.new(texture.outputs['Color'],emission.inputs['Color'])
-                tree.links.new(emission.outputs[0],output.inputs['Surface'])
+                color=bsdf.inputs['Base Color'];alpha=bsdf.inputs['Alpha']
+                if color.is_linked:tree.links.new(color.links[0].from_socket,emission.inputs['Color'])
+                else:emission.inputs['Color'].default_value=color.default_value
+                surface=emission.outputs[0]
+                if alpha.is_linked or alpha.default_value<.999:
+                    transparent=tree.nodes.new('ShaderNodeBsdfTransparent');mix=tree.nodes.new('ShaderNodeMixShader')
+                    if alpha.is_linked:tree.links.new(alpha.links[0].from_socket,mix.inputs[0])
+                    else:mix.inputs[0].default_value=alpha.default_value
+                    tree.links.new(transparent.outputs[0],mix.inputs[1]);tree.links.new(surface,mix.inputs[2]);surface=mix.outputs[0]
+                tree.links.new(surface,output.inputs['Surface'])
     scene.world.use_nodes=True
     scene.world.node_tree.nodes['Background'].inputs[0].default_value=(0.16,0.16,0.16,1)
     info=stats()
@@ -239,12 +248,12 @@ def render_views(directory,unlit=False,clay=False,front_axis='x',resolution=384,
     scene.camera=camera
     light_data=bpy.data.lights.new('QA_Light','AREA')
     scale=max(info['dimensions'])
-    light_data.energy=600*(scale**2 if clay else 1)
+    light_data.energy=600*(scale**2 if clay or normalize_light else 1)
     light_data.shape='DISK'
     light_data.size=5*(scale if clay else 1)
     light=bpy.data.objects.new('QA_Light',light_data)
     scene.collection.objects.link(light)
-    light_direction=(-3,-2,4) if clay and front_axis=='negative_y' else (2,-3,4)
+    light_direction=(-3,-2,4) if (clay or normalize_light) and front_axis=='negative_y' else (2,-3,4)
     light.location=target+Vector(light_direction)*scale
     # TripoSR conditioning camera is +X (up +Z). Keep front/side labels honest.
     directions=[('front',(1,0,0.15)),('side',(0,-1,0.15)),('rear',(-1,0,0.15)),('three_quarter',(1,-1,0.35))]
@@ -268,17 +277,23 @@ def export_fbx(directory,options=None):
             if not material or not material.use_nodes:continue
             for node in material.node_tree.nodes:
                 if node.type!='TEX_IMAGE' or not node.image:continue
-                channel='BaseColor'
+                channel='Data'
                 for link in node.outputs['Color'].links:
                     if link.to_node.type=='NORMAL_MAP' or link.to_socket.name=='Normal':channel='Normal'
+                    elif link.to_socket.name=='Base Color':channel='BaseColor'
                     elif link.to_socket.name=='Roughness':channel='Roughness'
                     elif link.to_socket.name=='Metallic':channel='Metallic'
                 used[node.image]=channel
     for index,(image,channel) in enumerate(used.items()):
         if image.type=='IMAGE' and image.size[0]>0:
-            image.filepath_raw=str(textures/f'{channel}_{index}.png')
+            target=str((textures/f'{channel}_{index}.png').resolve())
+            image.filepath_raw=target
             image.file_format='PNG'
             image.save()
+            # OBJ reads the packed image's original path when it remains packed.
+            # The actual PNG has been saved, so remove only the in-memory pack.
+            if image.packed_file:image.unpack(method='REMOVE')
+            image.filepath=target
     before=stats()
     select_all_meshes()
     if options.get('include_glb',True):save_glb(models/'Model.glb')
@@ -294,6 +309,7 @@ def export_fbx(directory,options=None):
     bpy.ops.object.delete(use_global=False)
     bpy.ops.import_scene.fbx(filepath=str(path))
     after=stats()
+    save_glb(directory.parent/'fbx_reimport.glb')
     if before['triangles']!=after['triangles'] or before['uv_meshes']!=after['uv_meshes']:
         raise RuntimeError('FBX reimport lost geometry or UV layers')
     if any(abs(a-b)>max(0.001,abs(a)*0.01) for a,b in zip(before['dimensions'],after['dimensions'])):
@@ -344,7 +360,7 @@ def main():
         (directory/'fbx_validation.json').write_text(json.dumps(validation,indent=2),encoding='utf-8')
     elif args.mode=='compare':
         # Input here is canonical processed glTF, whose Y-up conversion is valid.
-        render_views(directory,options.get('unlit',False),options.get('clay',False),options.get('front_axis','x'),options.get('render_resolution',384),options.get('opposite_side',False))
+        render_views(directory,options.get('unlit',False),options.get('clay',False),options.get('front_axis','x'),options.get('render_resolution',384),options.get('opposite_side',False),options.get('normalize_light',False))
     after=stats()
     after['integrity']=integrity()
     for result in after['integrity']:

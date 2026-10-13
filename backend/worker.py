@@ -182,6 +182,10 @@ class Worker:
         directory=self.store.directory(identifier)
         options_file=directory/'options.json'
         options_file.write_text(json.dumps(job['options']),encoding='utf-8')
+        if job['kind'] in ['texture','import']:
+            from .texture_engine.jobs import process_independent
+            process_independent(self,job,directory,options_file)
+            return
         if job['kind']=='generate':
             self.record_stage(identifier,'Verificando recursos locais','generating')
             provider=get_provider(job['provider'],self.root)
@@ -197,7 +201,7 @@ class Worker:
             record_effective_reference(directory,job['options'])
             metadata=json.loads((directory/'inference.json').read_text())
             metadata['gpu_preflight']=self.store.get(identifier)['metadata'].get('gpu_preflight')
-            blender_options={**job['options'],'texture_resolution':metadata['effective_settings'].get('texture_resolution') or 1024,'raw_up':'Y' if metadata.get('coordinate_system')=='y_up' else 'Z','geometry_only':job['provider'] in ['triposg','hunyuan_mini','hunyuan_mv','character_base_mesh'],'front_axis':metadata.get('render_front_axis','x'),'opposite_side':True}
+            blender_options={**job['options'],'texture_resolution':metadata['effective_settings'].get('texture_resolution') or 1024,'raw_up':'Y' if metadata.get('coordinate_system')=='y_up' else 'Z','geometry_only':job['options'].get('texture_output')=='geometry_only' or job['provider'] in ['triposg','hunyuan_mini','hunyuan_mv','character_base_mesh'],'front_axis':metadata.get('render_front_axis','x'),'opposite_side':True}
             options_file.write_text(json.dumps(blender_options),encoding='utf-8')
             self.store.update(identifier,status='postprocessing',stage='Blender: UVs e material neutro' if job['provider']=='triposg' else 'Blender: UVs e textura')
             neural_texture=directory/'textured_generation.glb'
@@ -343,7 +347,9 @@ class Worker:
                 if (directory/'qa_side_opposite.png').is_file():artifacts['side_opposite']=self.artifact(job,'qa_side_opposite.png')
             else:
                 self.store.update(identifier,status='postprocessing',stage='Blender: exportação e reimportação FBX')
+                self.run_process([str(self.root/'.venv-ai/Scripts/python.exe'),str(self.root/'backend/texture_engine/export_materials.py'),'--input',str(source),'--output',str(directory/'Forge3D_Asset')],directory,180)
                 self.blender(source,directory,'export',options_file)
+                self.run_process([str(self.root/'.venv-ai/Scripts/python.exe'),str(self.root/'backend/texture_engine/validate_export.py'),'--source',str(source),'--directory',str(directory)],directory,180)
                 self.package(job,directory,metadata)
                 artifacts={'fbx':self.artifact(job,'Forge3D_Asset/Models/Model.fbx'),'unity_zip':self.artifact(job,'Forge3D_Unity.zip'),'validation':self.artifact(job,'fbx_validation.json')}
                 for key,filename in [('glb','Model.glb'),('obj','Model.obj')]:
@@ -372,6 +378,14 @@ class Worker:
         from .materials import texture_channels
         channels=texture_channels(package/'Textures')
         manifest={'format_version':3,'name':job['name'],'pipeline':job['options'].get('pipeline','URP'),'source_job':job['parent'],'editor_class':class_name,'editor_menu':menu,'suggested_folder':job['name'].replace(' · Unity','')+'-'+job['id'][:8],'model':'Models/Model.fbx','albedo':channels['base_color'],'normal':channels['normal'],'texture_channels':channels,'material_constants':{'roughness':.65,'metallic':0},'units':'meters','provider':job['provider'],'inference':metadata,'fbx_validation':json.loads((directory/'fbx_validation.json').read_text())}
+        if (package/'materials.json').is_file():
+            manifest['materials']=json.loads((package/'materials.json').read_text(encoding='utf-8'));manifest['format_version']=4
+        if (directory/'geometry_export_validation.json').is_file():
+            shutil.copy2(directory/'geometry_export_validation.json',package/'geometry_export_validation.json')
+            manifest['geometry_export_validation']=json.loads((directory/'geometry_export_validation.json').read_text(encoding='utf-8'))
+        if metadata.get('texture_provider')=='neural_multiview':
+            shutil.copy2(self.root/'models/texture/sdxl/LICENSE.md',package/'SDXL_LICENSE.md')
+            shutil.copy2(self.root/'vendor/MV-Adapter/LICENSE',package/'MV_ADAPTER_LICENSE.txt')
         (package/'asset_manifest.json').write_text(json.dumps(manifest,indent=2),encoding='utf-8')
         with zipfile.ZipFile(directory/'Forge3D_Unity.zip','w',zipfile.ZIP_DEFLATED) as archive:
             for path in package.rglob('*'):
@@ -389,7 +403,11 @@ class Worker:
             except Exception as error:
                 if self.store.get(job['id'])['status']!='cancelled':
                     current=self.store.get(job['id'])
-                    self.store.update(job['id'],status='failed',stage='Falha no processamento',error=str(error)[-4000:],metadata={**current['metadata'],'failure':classify_failure(error),'timing':self.timeline.report()})
+                    failure=classify_failure(error)
+                    if job['kind'] in ['texture','import']:
+                        from .texture_engine.errors import classify_texture_failure
+                        failure=classify_texture_failure(error)
+                    self.store.update(job['id'],status='failed',stage='Falha no processamento',error=str(error)[-4000:],metadata={**current['metadata'],'failure':failure,'timing':self.timeline.report()})
             finally:
                 self.current=None
                 self.process=None

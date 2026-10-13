@@ -37,6 +37,8 @@ def create_app(data_root=None,start_worker=True):
                 lock.release()
     app=FastAPI(title='Forge3D AI',lifespan=lifespan)
     app.state.store=store
+    from .texture_engine.routes import texture_router
+    app.include_router(texture_router(ROOT,store))
     app.include_router(comparison_router(store.root))
     from .character_routes import character_router
     app.include_router(character_router(ROOT,store.root))
