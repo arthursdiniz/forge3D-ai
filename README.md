@@ -7,7 +7,17 @@ Aplicativo ativo neste workspace: `C:\Users\arthu\OneDrive\Documentos\Codex\forg
 
 Para instalar em uma máquina limpa: Python 3.10–3.12, Node.js 22+, Git e driver NVIDIA compatível com CUDA 12.4. Execute `Setup-Forge3D.bat` uma vez, com internet. Precisa de aproximadamente 12 GB livres para ambientes, cache e pesos; sem Docker/WSL. TripoSR usa licença MIT. SF3D foi avaliado, mas os pesos exigem aceite/acesso pessoal no Hugging Face; não foi instalado.
 
-## Usar
+## Usar o Studio
+
+O menu principal agora tem **Modelar**, **Texturizar** e **Biblioteca**.
+
+1. **Modelar:** envie uma imagem, escolha tipo/qualidade e clique **Gerar modelo 3D**. O resultado contém geometria; não inicia texturização automaticamente.
+2. **Texturizar:** selecione o modelo gerado ou importe uma malha, adicione a referência e clique **Gerar textura**. Preparação, geração, análise compatível, refinamento conservador e validações ficam em uma tarefa. A geometria original é preservada.
+3. **Biblioteca:** busque modelos, compare versões e exporte GLB, FBX, OBJ ou pacote Unity. Ferramentas de rosto, máscaras, cabelo, geometria, candidatos e configuração continuam no diálogo de opções avançadas.
+
+Leia o [guia passo a passo do Studio](docs/STUDIO_GUIDE.md), com exemplos, controles e solução de erros. [Arquitetura, evidências e limites da reformulação](docs/UX_WORKFLOW_AUDIT.md).
+
+## Fluxo técnico legado nas opções avançadas
 1. Arraste PNG/JPG/WEBP (até 20 MB), preferindo um único objeto inteiro em fundo limpo.
 2. Escolha TripoSR para textura, TripoSG para geometria sem textura ou **Hunyuan3D 2mini → Avançado** para dois candidatos com seeds, contorno conservador opcional e projeção frontal opcional (costas neutras). O lote Hinata real levou4min21s na RTX4060 de8GB; sem offload. Compare os dois candidatos antes de reduzir/exportar. Detalhes e provas em [CHARACTER_ADVANCED_VALIDATION.md](docs/CHARACTER_ADVANCED_VALIDATION.md). TripoSG oferece Balanced (50 passos/256³), Quality (50 passos/512³) quando validado neste hardware e seed; no TripoSR, selecione Fast (128³/512 px), Balanced (256³/1024 px) ou Quality (320³/2048 px). Balanced/Quality TripoSR consultam cores neurais por texel; Fast interpola cores de vértices. Mais amostras refinam o mesmo campo neural, sem garantia de melhor reconstrução.
 3. Escolha o preset de preparação, fundo automático/alpha/manter/remover e recorte opcional. Confira a referência e entrada efetiva em “Original × entrada efetiva”. Presets só controlam enquadramento real.
@@ -52,3 +62,14 @@ Character Intelligence local permite revisar pose/landmarks, medir diferenças e
 ### Texturização independente
 
 Abra **Texturização IA** para escolher uma malha antiga ou importar GLB/GLTF/OBJ/FBX estático. Projeção de vistas reais e MV-Adapter SDXL criam novas versões com geometria verificada; o neural foi executado offline na RTX 4060 de 8 GB com seis vistas conjuntas. Modelagem/exportação continuam sem exigir esses pesos. Consulte [uso, medições, licenças e limites](docs/TEXTURE_ENGINE.md). Setup separado: `Setup-TextureEngine.bat` (download apenas quando explicitamente autorizado).
+
+O **Face Detail Workspace** permite preparar a referência original e o render3D, revisar máscaras/alinhamento e corrigir somente rosto ou outra região. Cria uma nova versão preservando o restante da textura, UVs e geometria. Veja [passo a passo, comparações e limites](docs/TEXTURE_FIDELITY.md). Para imagem opaca na textura global, selecione **Remover fundo**; alpha exige máscara real.
+
+
+### Cabelo 3D
+
+Reconstrução capilar local com máscaras, scalp revisável e massas/mechas independentes, preservando o modelo anterior. Abra **Ferramentas avançadas → Cabelo 3D** e siga o [guia de uso, resultados e limites](docs/HAIR_INTELLIGENCE.md). A melhoria demonstrada é localizada; regiões ocultas continuam estimadas.
+
+### Semântica e Reference Fidelity
+
+Em **Ferramentas avançadas → Textura, rosto e semântica → Semântica e Reference Fidelity**, revise máscaras reais de retratos e categorias manuais do corpo para restringir a transferência por classe, preservar áreas protegidas e criar versões locais. Veja [como usar, comparações, licenças e limites](docs/SEMANTIC_TEXTURING.md). A proposta SDXL para áreas ausentes é opcional; não corrige anatomia nem garante aparência das costas.

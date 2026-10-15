@@ -7,3 +7,9 @@ def test_texture_metrics_do_not_report_parent_geometry_gpu_peak():
     assert result['geometry_generation_metrics']['peak_vram_mb']==7000 and parent['peak_vram_mb']==7000
     projection=texture_metadata(parent,{'provider':'reference_projection'},{'front_axis':'x'},'source-hash')
     assert 'peak_vram_mb' not in projection and 'inference_seconds' not in projection
+
+def test_regional_versions_track_neural_appearance_license_ancestry():
+    from backend.texture_engine.jobs import texture_metadata
+    parent={'texture_provider':'neural_multiview','geometry_generation_metrics':{'peak_vram_mb':7000}}
+    regional=texture_metadata(parent,{'provider':'reference_region'},{'front_axis':'negative_y'},'hash')
+    assert regional['texture_provider_history']==['neural_multiview','reference_region']

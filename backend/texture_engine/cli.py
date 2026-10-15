@@ -17,12 +17,12 @@ def main():
     lock=InstanceLock(ROOT/'data/gpu.lock')
     lock.acquire()
     try:
-        from backend.texture_engine.contracts import TextureOptions
+        from backend.texture_engine.contracts import TextureOptions,RegionRefineOptions
         from backend.texture_engine.providers import TextureProvider
         import numpy as np
         import trimesh
         from PIL import Image
-        directory=Path(args.output);options=TextureOptions.model_validate_json(Path(args.options).read_text(encoding='utf-8')).model_dump()
+        directory=Path(args.output);raw=json.loads(Path(args.options).read_text(encoding='utf-8'));schema=RegionRefineOptions if raw.get('provider')=='reference_region' else TextureOptions;options=schema.model_validate(raw).model_dump()
         print(json.dumps({'stage':'Texture Engine: preparing UV and references'}),flush=True)
         bundle=json.loads((directory/'texture_references.json').read_text(encoding='utf-8'));references={}
         for view,record in bundle['views'].items():
@@ -35,14 +35,15 @@ def main():
                 if not (ROOT/'models/rembg/u2netp.onnx').is_file():raise ValueError('Local u2netp weights missing; run modeling setup.')
                 os.environ['U2NET_HOME']=str(ROOT/'models/rembg')
                 image=remove(image,session=new_session('u2netp',providers=['CPUExecutionProvider']))
-            if image.getchannel('A').getextrema()[0]==255:raise ValueError('Reference has no foreground alpha mask.')
+            if options['provider']!='reference_region' and image.getchannel('A').getextrema()[0]==255:raise ValueError('Reference has no foreground alpha mask.')
+            prepared=directory/'prepared_references';prepared.mkdir(exist_ok=True);image.save(prepared/(view+'.png'))
             references[view]=np.asarray(image)
         from backend.texture_engine.import_safety import validate_resources
         validate_resources('model.glb',Path(args.input).read_bytes(),{})
         scene=trimesh.load(args.input,force='scene',process=False)
         provider=TextureProvider(ROOT,options['provider'])
         try:
-            provider.prepare(scene,references,options,directory);provider.generate()
+            provider.prepare(scene,references,options,directory);provider.session['source_folder']=Path(args.input).parent;provider.generate()
             print(json.dumps({'stage':'Texture Engine: depth-tested fusion and GLB identity'}),flush=True)
             provider.finalize()
             print(json.dumps({'stage':'Texture Engine: geometry verified'}),flush=True)

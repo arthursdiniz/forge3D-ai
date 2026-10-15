@@ -1,0 +1,12 @@
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const vm=require('node:vm');
+const ts=require('../frontend/node_modules/typescript');
+const source=fs.readFileSync('frontend/src/studio/submission.ts','utf8');
+const compiled=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+const exportsObject={};vm.runInNewContext(compiled,{exports:exportsObject,crypto:require('node:crypto').webcrypto});
+const {SubmissionGuard}=exportsObject;
+test('blocks overlapping submits before React renders again',()=>{const guard=new SubmissionGuard(()=> 'key');assert.equal(guard.start('a'),'key');assert.equal(guard.start('a'),null);assert.equal(guard.start('b'),null);});
+test('a lost response reuses the same content-bound request key',()=>{let count=0;const guard=new SubmissionGuard(()=>String(++count));assert.equal(guard.start('same-input'),'1');guard.finish(false);assert.equal(guard.start('same-input'),'1');guard.finish(true);assert.equal(guard.start('same-input'),'2');});
+test('changing inputs starts a different intent after an error',()=>{let count=0;const guard=new SubmissionGuard(()=>String(++count));guard.start('old');guard.finish(false);assert.equal(guard.start('new'),'2');});

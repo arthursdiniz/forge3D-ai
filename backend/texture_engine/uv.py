@@ -32,7 +32,7 @@ def prepare_uv(scene,mode,resolution):
     edges={child:(parent,data) for parent,child,data in result.graph.to_edgelist()}
     originals=list(result.graph.nodes_geometry)
     for number,node in enumerate(originals):
-        _,name=scene.graph[node];mesh=scene.geometry[name].copy()
+        _,name=scene.graph[node];source=scene.geometry[name];normals=np.asarray(source.vertex_normals).copy();mesh=source.copy();mesh.vertex_normals=normals
         if isinstance(getattr(mesh.visual,'material',None),trimesh.visual.material.MultiMaterial):raise ValueError('Split multimaterial primitives on static import before texturing.')
         material=getattr(mesh.visual,'material',None)
         data_maps=any(getattr(material,key,None) is not None for key in ['normalTexture','occlusionTexture','metallicRoughnessTexture','emissiveTexture'])

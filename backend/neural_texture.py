@@ -2,26 +2,29 @@
 from pathlib import Path
 import numpy as np
 
-def rasterize_positions(vertices,faces,uv,resolution):
+def rasterize_positions(vertices,faces,uv,resolution,face_ids=False):
     import moderngl
     context=moderngl.create_standalone_context()
+    width,height=(resolution,resolution) if isinstance(resolution,int) else resolution
     try:
         program=context.program(vertex_shader='''#version 330
 in vec2 in_uv; in vec3 in_pos; out vec3 position;
 void main(){position=in_pos;gl_Position=vec4(in_uv*2.0-1.0,0.0,1.0);}''',fragment_shader='''#version 330
+in vec3 position; out vec4 output_position;
+void main(){output_position=vec4(position,1.0);}'''.replace('1.0);','float(gl_PrimitiveID+1));') if face_ids else '''#version 330
 in vec3 position; out vec4 output_position;
 void main(){output_position=vec4(position,1.0);}''')
         positions=context.buffer(np.asarray(vertices,dtype='f4').tobytes())
         coords=context.buffer(np.asarray(uv,dtype='f4').tobytes())
         indices=context.buffer(np.asarray(faces,dtype='i4').tobytes())
         vao=context.vertex_array(program,[(coords,'2f','in_uv'),(positions,'3f','in_pos')],indices)
-        attachment=context.texture((resolution,resolution),4,dtype='f4')
+        attachment=context.texture((width,height),4,dtype='f4')
         target=context.framebuffer(color_attachments=[attachment])
         target.use()
         target.clear(0,0,0,0)
         context.disable(moderngl.DEPTH_TEST|moderngl.CULL_FACE)
         vao.render(mode=moderngl.TRIANGLES)
-        pixels=np.frombuffer(attachment.read(),dtype='f4').reshape(resolution,resolution,4).copy()
+        pixels=np.frombuffer(attachment.read(),dtype='f4').reshape(height,width,4).copy()
         vao.release();indices.release();coords.release();positions.release();target.release();attachment.release();program.release()
         return pixels
     finally:

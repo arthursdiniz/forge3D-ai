@@ -65,5 +65,8 @@ def project_reference_colors(vertices,faces,positions,normals,rgba,depth_resolut
     visible&=(pixels[:,0]>=0)&(pixels[:,0]<w)&(pixels[:,1]>=0)&(pixels[:,1]<h)
     confidence=np.clip((n[:,2]-0.15)/0.5,0,1)*sample[:,3]*visible
     confidence[sample[:,3]<0.75]=0
-    rgb=sample[:,:3]*confidence[:,None]+NEUTRAL*(1-confidence[:,None])
+    # Observation color is independent of angle/visibility confidence. Callers
+    # choose neutral only when no visible observation contributes.
+    rgb=sample[:,:3]
+    rgb[confidence<=0]=NEUTRAL
     return rgb.astype(np.float32),confidence.astype(np.float32)

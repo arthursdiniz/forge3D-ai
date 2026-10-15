@@ -72,5 +72,6 @@ class NativeControls:
         visible=occupied&(np.abs((depth-native)@direction)<=2/size)&(uv[:,0]>=0)&(uv[:,0]<1)&(uv[:,1]>=0)&(uv[:,1]<1)
         weight=np.clip((normals@direction-.15)/.6,0,1)*sample[:,3]*visible
         weight[sample[:,3]<.75]=0
-        colors=sample[:,:3]*weight[:,None]+NEUTRAL*(1-weight[:,None])
+        colors=sample[:,:3]
+        colors[weight<=0]=NEUTRAL
         return colors.astype('f4'),weight.astype('f4')

@@ -1,5 +1,7 @@
 # Texture Engine · entrega local 2026-10-12
 
+Upgrade13/10/2026: [Texture Fidelity e Face Detail Workspace](TEXTURE_FIDELITY.md), com correções de RGB/fusão/normais, máscaras e projeção regional, comparações e medições reais. O conteúdo abaixo preserva a documentação da entrega anterior.
+
 O Forge agora separa modelagem e aparência. A seção **Texturização IA** recebe malhas da biblioteca ou arquivos estáticos GLB, GLTF, OBJ e FBX. Cada processamento cria um job `texture` com origem, referências, logs, mapas, seed, cobertura, medidas reais e comparação geométrica. Os modos anteriores continuam disponíveis; TripoSR ganhou a opção **Gerar somente geometria · texturizar depois**, que evita consultas de cor e atlas neural.
 
 ## Uso

@@ -5,6 +5,15 @@ from .providers import TextureProvider
 
 def texture_metadata(parent,texture,options,source_hash):
     result=dict(parent)
+    history=list(parent.get('texture_provider_history',[]))
+    if parent.get('texture_provider') and parent['texture_provider'] not in history:history.append(parent['texture_provider'])
+    if texture['provider'] not in history:history.append(texture['provider'])
+    result['texture_provider_history']=history
+    resources=list(parent.get('texture_resource_history',[]))
+    if texture.get('neural') or parent.get('texture',{}).get('neural') or 'neural_multiview' in history:
+        for resource in ['sdxl','mv_adapter']:
+            if resource not in resources:resources.append(resource)
+    result['texture_resource_history']=resources
     metrics={key:result.pop(key) for key in ['peak_vram_mb','peak_reserved_mb','inference_seconds','load_seconds','total_seconds'] if key in result}
     result['geometry_generation_metrics']=dict(parent.get('geometry_generation_metrics',metrics))
     for key in ['live_gpu','gpu_preflight','failure','offline_network_blocked']:result.pop(key,None)
@@ -43,7 +52,16 @@ def process_independent(worker,job,directory,options_file):
         for record in texture['materials']:
             for channel,path in record['maps'].items():artifacts[f"{record['geometry']}_{channel}"]=worker.artifact(job,path)
         if (directory/'neural.json').is_file():artifacts['neural_report']=worker.artifact(job,'neural.json')
+        if texture.get('regional'):
+            artifacts['candidate']=worker.artifact(job,'candidate.glb')
+            for filename in ['face_reference.png','face_reference_core.png','face_reference_enlarged.png','reference_aligned.png','comparison_mask.png']+[f'face_{moment}_{view}.png' for moment in ['before','after'] for view in ['front','three_quarter','side']]:artifacts[filename.replace('.png','')]=worker.artifact(job,filename)
+        if texture.get('semantic'):
+            for path in directory.glob('semantic_*.png'):artifacts[path.stem]=worker.artifact(job,path.name)
         if (directory/'gpu_monitor.json').is_file():artifacts['gpu_monitor']=worker.artifact(job,'gpu_monitor.json')
+    publish_independent(worker,job,directory,options_file,metadata,artifacts)
+
+def publish_independent(worker,job,directory,options_file,metadata,artifacts):
+    identifier=job['id']
     options_file.write_text(json.dumps({'front_axis':metadata['render_front_axis'],'opposite_side':True}),encoding='utf-8')
     worker.record_stage(identifier,'Blender: vistas de inspeção','postprocessing')
     worker.blender(directory/'model.glb',directory,'compare',options_file)
@@ -53,4 +71,7 @@ def process_independent(worker,job,directory,options_file):
     artifacts.update({view:worker.artifact(job,'qa_'+view+'.png') for view in ['front','side','side_opposite','rear','three_quarter']})
     worker.timeline.enter('Pronto');metadata['timing']=worker.timeline.report()
     metadata['total_seconds']=metadata['timing']['elapsed_seconds']
+    if job['kind']=='texture_workflow':
+        from ..workflows.jobs import finish_workflow
+        metadata,artifacts=finish_workflow(worker,job,directory,metadata,artifacts)
     worker.store.update(identifier,status='completed',stage='Pronto',metadata=metadata,artifacts=artifacts,error=None)

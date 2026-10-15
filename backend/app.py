@@ -39,6 +39,12 @@ def create_app(data_root=None,start_worker=True):
     app.state.store=store
     from .texture_engine.routes import texture_router
     app.include_router(texture_router(ROOT,store))
+    from .texture_engine.region_routes import region_router
+    app.include_router(region_router(ROOT,store))
+    from .hair.routes import hair_router
+    app.include_router(hair_router(ROOT,store))
+    from .texture_engine.semantic_routes import semantic_router
+    app.include_router(semantic_router(ROOT,store))
     app.include_router(comparison_router(store.root))
     from .character_routes import character_router
     app.include_router(character_router(ROOT,store.root))
@@ -95,8 +101,7 @@ def create_app(data_root=None,start_worker=True):
             job=require_job(job['parent'])
         return job
 
-    @app.post('/api/jobs',status_code=201)
-    async def generate(image:UploadFile=File(...),options:str=Form('{}'),provider:str=Form('triposr'),left:UploadFile|None=File(None),back:UploadFile|None=File(None),right:UploadFile|None=File(None)):
+    async def enqueue_generation(image,options,provider,left=None,back=None,right=None,*,workflow=None):
         try:selected_provider=get_provider(provider,ROOT)
         except ValueError:raise HTTPException(400,'Provedor desconhecido.')
         if provider!='triposr' and not selected_provider.health_check()['available']:
@@ -167,7 +172,7 @@ def create_app(data_root=None,start_worker=True):
                 masked=converted.crop((round(crop_left*converted.width),round(crop_top*converted.height),round(crop_right*converted.width),round(crop_bottom*converted.height)))
             if settings.background_mode in ['keep','preserve_alpha'] and masked.getchannel('A').getextrema()[0]==255:
                 raise HTTPException(422,'Projeção/refinamento exige máscara do objeto. Use fundo automático/remoção ou uma imagem com alpha.')
-        job=store.create(Path(image.filename or 'Asset').stem,provider,settings.model_dump(),initial_status='uploading')
+        job=store.create(Path(image.filename or 'Asset').stem,provider,settings.model_dump(),kind='model_workflow' if workflow else 'generate',initial_status='uploading')
         directory=store.directory(job['id'])
         (directory/'source_upload.bin').write_bytes(content)
         converted.save(directory/'source.png')
@@ -183,7 +188,18 @@ def create_app(data_root=None,start_worker=True):
             from .config import atomic_json
             atomic_json(directory/'character_interpretation_original.json',original_interpretation)
             atomic_json(directory/'character_interpretation.json',interpretation)
-        return store.update(job['id'],status='queued')
+        metadata={}
+        if workflow:
+            atomic_json(directory/'workflow.json',workflow)
+            metadata['workflow']=workflow
+        return store.update(job['id'],status='queued',metadata=metadata)
+
+    @app.post('/api/jobs',status_code=201)
+    async def generate(image:UploadFile=File(...),options:str=Form('{}'),provider:str=Form('triposr'),left:UploadFile|None=File(None),back:UploadFile|None=File(None),right:UploadFile|None=File(None)):
+        return await enqueue_generation(image,options,provider,left,back,right)
+
+    from .workflows.routes import workflow_router
+    app.include_router(workflow_router(ROOT,store,enqueue_generation))
 
     @app.post('/api/jobs/{identifier}/cancel')
     def cancel(identifier:str):

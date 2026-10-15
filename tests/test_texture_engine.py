@@ -52,6 +52,12 @@ def test_uv_creation_preserves_triangles_and_data_maps_prevent_rewrap():
     after,report=uv.prepare_uv(trimesh.Scene(mesh),'preserve',1024)
     assert np.array_equal(next(iter(after.geometry.values())).visual.uv,mesh.visual.uv)
 
+def test_uv_copy_preserves_imported_authored_normals_instead_of_recomputing_them():
+    uv=engine_module('uv')
+    mesh=plane();mesh.vertex_normals=np.tile([.4,0,np.sqrt(.84)],(len(mesh.vertices),1))
+    normals=mesh.vertex_normals.copy();result,_=uv.prepare_uv(trimesh.Scene(mesh),'preserve',1024)
+    assert np.allclose(next(iter(result.geometry.values())).vertex_normals,normals,atol=1e-7)
+
 def test_uv_retexturing_geometry_names_cannot_overwrite_a_later_source_instance():
     uv=engine_module('uv');identity=engine_module('identity')
     scene=trimesh.Scene();scene.add_geometry(plane(),geom_name='texture_001',node_name='first')
